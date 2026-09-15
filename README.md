@@ -1,5 +1,5 @@
 # Pintos
-This repo contains skeleton code for undergraduate Operating System course honor track at Peking University. 
+This repo contains skeleton code for students in the Operating System and C at IT university Copenhagen. 
 
 [Pintos](http://pintos-os.org) is a teaching operating system for 32-bit x86, challenging but not overwhelming, small
 but realistic enough to understand OS in depth (it can run on x86 machine and simulators 
