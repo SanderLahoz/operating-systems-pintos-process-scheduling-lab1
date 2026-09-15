@@ -16,7 +16,7 @@ docker run -it elipog/pintos bash
 
 This image is about 3GB (it contains a full Ubuntu18.04), so it may take some time at its first run.
 
-If everything goes well, you will enter a bash shell. You can use `ls` or `pwd` to play around and you will find there is a `toolchain` directory which contains all the dependencies and your home directory is under `/home/PKUOS`. Now you own a tiny Ubuntu OS inside your host computer, and you can shut it down easily by `Ctrl+d`. You can check that it has exited by running `docker ps -a`.
+If everything goes well, you will enter a bash shell. You can use `ls` or `pwd` to play around and you will find there is a `toolchain` directory which contains all the dependencies and your home directory is under `/home/OSLAB`. Now you own a tiny Ubuntu OS inside your host computer, and you can shut it down easily by `Ctrl+d`. You can check that it has exited by running `docker ps -a`.
 
 ## How to run Pintos
 Now change back to your host machine, git clone the Pintos repository by running:
@@ -30,7 +30,7 @@ Then run the docker image again but this time mount your `path/to/pintos` into t
 *You need to enter the absolute path to your pintos directory in the command below!*
 
 ```
-docker run -it --rm --name pintos --mount type=bind,source=absolute/path/to/pintos/on/your/host/machine,target=/home/PKUOS/pintos elipog/pintos bash
+docker run -it --rm --name pintos --mount type=bind,source=absolute/path/to/pintos/on/your/host/machine,target=/home/OSLAB/pintos elipog/pintos bash
 ```
 p.s. `--rm` tells docker to delete the container after running, and `--name pintos` names the container as `pintos`, this will be helpful in the debugging part.
 
