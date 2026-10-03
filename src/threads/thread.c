@@ -309,27 +309,61 @@ void thread_yield(void)
   intr_set_level(old_level);
 }
 
-/** Move the thread to the sleep queue for ticks amount of time */
-void thread_sleep(int64_t ticks)
+/**
+ * Comparator function to keep sleep_list ordered by wakeup_time ascending.
+ */
+bool thread_compare_wakeup(const struct list_elem *a,
+                           const struct list_elem *b,
+                           void *aux UNUSED)
 {
-  /* If the current thread is not idle thread,
-     change the state of the caller thread to BLOCKED
-     store the local tick to wake up
-     and call schedule() */
-  /* Note remember to disable interupt when manipulating thread list */
+  const struct thread *ta = list_entry(a, struct thread, elem);
+  const struct thread *tb = list_entry(b, struct thread, elem);
 
+  return ta->wakeup_time < tb->wakeup_time;
+}
+
+/** Move the thread to the sleep queue for ticks amount of time */
+void thread_sleep(int64_t wakeup_time)
+{
   struct thread *cur = thread_current();
   enum intr_level old_level;
 
-  old_level = intr_disable();
-  if (cur != idle_thread)
-  {
-    cur->status = THREAD_BLOCKED;
-    cur->wakeup_time = ticks;
-  }
+  ASSERT(!intr_context());
+  ASSERT(cur != idle_thread);
 
-  schedule();
+  old_level = intr_disable();
+
+  cur->wakeup_time = wakeup_time;
+
+  /* Insert thread into sleep_list maintaining ascending order of wakeup_time */
+  list_insert_ordered(&sleep_list, &cur->elem, thread_compare_wakeup, NULL);
+
+  /* thread_block() sets state to THREAD_BLOCKED and calls schedule() */
+  thread_block();
+
   intr_set_level(old_level);
+}
+
+/**
+ * Checks sleep_list and unblocks threads whose wakeup_time <= current_ticks.
+ * Executed inside timer interrupt context.
+ */
+void thread_wakeup(int64_t current_ticks)
+{
+  ASSERT(intr_context());
+
+  while (!list_empty(&sleep_list))
+  {
+    struct list_elem *e = list_front(&sleep_list);
+    struct thread *t = list_entry(e, struct thread, elem);
+
+    /* Since sleep_list is sorted, stop at the first thread not ready to wake up */
+    if (current_ticks < t->wakeup_time)
+      break;
+
+    list_pop_front(&sleep_list);
+    thread_unblock(t);
+  }
 }
 
 /** Invoke function 'func' on all threads, passing along 'aux'.
