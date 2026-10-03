@@ -57,7 +57,6 @@ static long long user_ticks;   /**< # of timer ticks in user programs. */
 /** Scheduling. */
 #define TIME_SLICE 4          /**< # of timer ticks to give each thread. */
 static unsigned thread_ticks; /**< # of timer ticks since last yield. */
-static int64_t global_tick;
 
 /** If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -316,24 +315,17 @@ void thread_sleep(int64_t ticks)
   /* If the current thread is not idle thread,
      change the state of the caller thread to BLOCKED
      store the local tick to wake up
-     update the global tick if necessary
      and call schedule() */
   /* Note remember to disable interupt when manipulating thread list */
 
   struct thread *cur = thread_current();
   enum intr_level old_level;
 
-  if (global_tick == NULL)
-    global_tick = ticks;
-
   old_level = intr_disable();
   if (cur != idle_thread)
   {
     cur->status = THREAD_BLOCKED;
     cur->wakeup_time = ticks;
-
-    // Global tick is updated if the local ticks is less than current global ticks
-    global_tick = global_tick < ticks ? global_tick : ticks;
   }
 
   schedule();
