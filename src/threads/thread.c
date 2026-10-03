@@ -309,6 +309,11 @@ void thread_yield(void)
   intr_set_level(old_level);
 }
 
+/** Move the thread to the sleep queue for ticks amount of time */
+void thread_sleep(int64_t ticks)
+{
+}
+
 /** Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void thread_foreach(thread_action_func *func, void *aux)
