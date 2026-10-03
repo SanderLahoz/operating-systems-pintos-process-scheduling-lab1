@@ -312,6 +312,12 @@ void thread_yield(void)
 /** Move the thread to the sleep queue for ticks amount of time */
 void thread_sleep(int64_t ticks)
 {
+  /* If the current thread is not idle thread,
+     change the state of the caller thread to BLOCKED
+     store the local tick to wake up
+     update the global tick if necessary
+     and call schedule() */
+  /* Note remember to disable interupt when manipulating thread list */
 }
 
 /** Invoke function 'func' on all threads, passing along 'aux'.
