@@ -235,7 +235,8 @@ void thread_unblock(struct thread *t)
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
-  list_push_back(&ready_list, &t->elem);
+
+  list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level(old_level);
 }
@@ -320,6 +321,19 @@ bool thread_compare_wakeup(const struct list_elem *a,
   const struct thread *tb = list_entry(b, struct thread, elem);
 
   return ta->wakeup_time < tb->wakeup_time;
+}
+
+/**
+ * Comparator function to keep ready_list ordered by priority descending.
+ */
+bool thread_compare_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux UNUSED)
+{
+  const struct thread *ta = list_entry(a, struct thread, elem);
+  const struct thread *tb = list_entry(b, struct thread, elem);
+
+  return ta->priority > tb->priority;
 }
 
 /** Move the thread to the sleep queue for ticks amount of time */
