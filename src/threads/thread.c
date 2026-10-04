@@ -205,7 +205,7 @@ tid_t thread_create(const char *name, int priority,
   struct thread *cur = thread_current();
   if (cur->priority < priority)
   {
-    schedule();
+    thread_yield();
   }
 
   return tid;
@@ -406,16 +406,19 @@ void thread_foreach(thread_action_func *func, void *aux)
 /** Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-  struct thread *cur = thread_current();
-  struct thread *next = next_thread_to_run();
+  enum intr_level old_level = intr_disable();
 
-  cur->priority = new_priority;
+  thread_current()->priority = new_priority;
 
-  // If the priority becomes less we yield the current process
-  if (new_priority < next->priority)
+  if (!list_empty(&ready_list))
   {
-    thread_yield();
+    struct thread *front = list_entry(list_front(&ready_list),
+                                      struct thread, elem);
+    if (front->priority > new_priority)
+      thread_yield();
   }
+
+  intr_set_level(old_level);
 }
 
 /** Returns the current thread's priority. */
