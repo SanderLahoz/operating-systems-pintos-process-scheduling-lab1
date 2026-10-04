@@ -105,14 +105,33 @@ bool sema_try_down(struct semaphore *sema)
 void sema_up(struct semaphore *sema)
 {
   enum intr_level old_level;
+  bool should_yield = false;
 
   ASSERT(sema != NULL);
 
   old_level = intr_disable();
+
   if (!list_empty(&sema->waiters))
-    thread_unblock(list_entry(list_pop_front(&sema->waiters),
-                              struct thread, elem));
+  {
+    /* Priorities may have changed while waiting, so sort at wake time. */
+    list_sort(&sema->waiters, thread_compare_priority, NULL);
+
+    struct thread *woken = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+
+    thread_unblock(woken);
+
+    /* if the woken thread outranks the running one. */
+    if (woken->priority > thread_current()->priority)
+      should_yield = true;
+  }
+
   sema->value++;
+
+  if (should_yield)
+  {
+    intr_context() ? intr_yield_on_return() : thread_yield();
+  }
+
   intr_set_level(old_level);
 }
 
