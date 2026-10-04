@@ -133,6 +133,9 @@ void thread_wakeup(int64_t current_ticks);
 bool thread_compare_wakeup(const struct list_elem *a,
                            const struct list_elem *b,
                            void *aux UNUSED);
+bool thread_compare_priority(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux UNUSED);
 
 /** Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func(struct thread *t, void *aux);
