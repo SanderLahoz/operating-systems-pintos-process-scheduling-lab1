@@ -406,7 +406,16 @@ void thread_foreach(thread_action_func *func, void *aux)
 /** Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-  thread_current()->priority = new_priority;
+  struct thread *cur = thread_current();
+  struct thread *next = next_thread_to_run();
+
+  cur->priority = new_priority;
+
+  // If the priority becomes less we yield the current process
+  if (new_priority < next->priority)
+  {
+    thread_yield();
+  }
 }
 
 /** Returns the current thread's priority. */
