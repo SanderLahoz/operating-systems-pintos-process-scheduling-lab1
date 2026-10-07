@@ -378,12 +378,16 @@ void thread_wakeup(int64_t current_ticks)
     struct list_elem *e = list_front(&sleep_list);
     struct thread *t = list_entry(e, struct thread, elem);
 
-    /* Since sleep_list is sorted, stop at the first thread not ready to wake up */
+    /* Sorted list: stop at the first thread that isn't due yet. */
     if (current_ticks < t->wakeup_time)
       break;
 
     list_pop_front(&sleep_list);
     thread_unblock(t);
+
+    /* Preempt on return from the interrupt if the woken thread outranks us. */
+    if (t->priority > thread_current()->priority)
+      intr_yield_on_return();
   }
 }
 
@@ -407,16 +411,11 @@ void thread_foreach(thread_action_func *func, void *aux)
 void thread_set_priority(int new_priority)
 {
   enum intr_level old_level = intr_disable();
+  struct thread *cur = thread_current();
 
-  thread_current()->priority = new_priority;
-
-  if (!list_empty(&ready_list))
-  {
-    struct thread *front = list_entry(list_front(&ready_list),
-                                      struct thread, elem);
-    if (front->priority > new_priority)
-      thread_yield();
-  }
+  cur->base_priority = new_priority;
+  thread_refresh_priority(cur); /* keeps a higher donated priority */
+  thread_preempt_check();
 
   intr_set_level(old_level);
 }
@@ -492,6 +491,61 @@ idle(void *idle_started_ UNUSED)
   }
 }
 
+/** Sets T's effective priority and, if T is in the ready list,
+   moves it to its new position.  Interrupts must be off. */
+void thread_update_priority(struct thread *t, int priority)
+{
+  ASSERT(intr_get_level() == INTR_OFF);
+
+  t->priority = priority;
+  if (t->status == THREAD_READY)
+  {
+    list_remove(&t->elem);
+    list_insert_ordered(&ready_list, &t->elem, thread_compare_priority, NULL);
+  }
+}
+
+/** Recomputes T's effective priority from its base priority and
+   the highest-priority waiter on each lock it holds. */
+void thread_refresh_priority(struct thread *t)
+{
+  struct list_elem *e, *w;
+  int p = t->base_priority;
+
+  ASSERT(intr_get_level() == INTR_OFF);
+
+  for (e = list_begin(&t->held_locks); e != list_end(&t->held_locks);
+       e = list_next(e))
+  {
+    struct lock *l = list_entry(e, struct lock, elem);
+    for (w = list_begin(&l->semaphore.waiters);
+         w != list_end(&l->semaphore.waiters); w = list_next(w))
+    {
+      struct thread *wt = list_entry(w, struct thread, elem);
+      if (wt->priority > p)
+        p = wt->priority;
+    }
+  }
+
+  if (p != t->priority)
+    thread_update_priority(t, p);
+}
+
+/** Yields if a ready thread has higher priority than the running one. */
+void thread_preempt_check(void)
+{
+  enum intr_level old_level = intr_disable();
+
+  if (!list_empty(&ready_list))
+  {
+    struct thread *front = list_entry(list_front(&ready_list),
+                                      struct thread, elem);
+    if (front->priority > thread_current()->priority)
+      thread_yield();
+  }
+  intr_set_level(old_level);
+}
+
 /** Function used as the basis for a kernel thread. */
 static void
 kernel_thread(thread_func *function, void *aux)
@@ -540,7 +594,11 @@ init_thread(struct thread *t, const char *name, int priority)
   strlcpy(t->name, name, sizeof t->name);
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
+  t->base_priority = priority;
+  t->waiting_lock = NULL;
   t->magic = THREAD_MAGIC;
+
+  list_init(&t->held_locks);
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
